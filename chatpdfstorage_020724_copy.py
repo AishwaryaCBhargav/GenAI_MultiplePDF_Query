@@ -10,6 +10,7 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 import logging
+# import FAISS
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -78,8 +79,11 @@ def get_vector_store(text_chunks):
 # Function to load FAISS index
 def load_faiss_index():
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    faiss_index = FAISS.load_local(FAISS_INDEX_PATH, embeddings)
+    st.success("Embeddings loaded successfully!")
+    faiss_index = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+    st.success("FAISS index loaded successfully!")
     return faiss_index
+    
 
 def get_conversational_chain():
     """Creates and returns a conversational chain for the chatbot."""
@@ -102,7 +106,16 @@ def user_input(user_question):
     detailed_question = user_question + " Explain in detail."
     # embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
     try:
+        
+        if not os.path.exists(FAISS_INDEX_PATH):
+            st.error("FAISS index file not found. Please ensure the file exists.")
+            return
         new_db = load_faiss_index()
+
+        if new_db is None:
+            st.error("Failed to load FAISS index.")
+            return
+        
         docs = new_db.similarity_search(detailed_question)
         if not docs:
             st.write("No similar documents found.")
@@ -111,8 +124,10 @@ def user_input(user_question):
         response = chain({"input_documents": docs, "question": detailed_question}, return_only_outputs=True)
         st.write("Reply:", response["output_text"])
     except FileNotFoundError as fnf_error:
+        logger.error(f"FileNotFoundError: {fnf_error}")
         st.error("FAISS index file not found. Please ensure the file exists.")
     except ValueError as ve:
+        logger.error(f"ValueError while loading FAISS index: {ve}")
         st.error("ValueError while loading FAISS index. Please check the embeddings and index file.")
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
