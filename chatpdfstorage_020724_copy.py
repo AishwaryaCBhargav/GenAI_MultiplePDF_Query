@@ -66,11 +66,20 @@ def get_text_chunks(text):
     logger.info(f"Text split into {len(chunks)} chunks")
     return chunks
 
+FAISS_INDEX_PATH = "faiss_index"
+
 def get_vector_store(text_chunks):
     """Creates and saves a vector store from text chunks."""
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    vector_store.save_local("faiss_index")
+    vector_store.save_local(FAISS_INDEX_PATH)
+    st.success("FAISS index created and saved successfully!")
+
+# Function to load FAISS index
+def load_faiss_index():
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    faiss_index = FAISS.load_local(FAISS_INDEX_PATH, embeddings)
+    return faiss_index
 
 def get_conversational_chain():
     """Creates and returns a conversational chain for the chatbot."""
@@ -91,9 +100,9 @@ def get_conversational_chain():
 def user_input(user_question):
     """Processes the user's question and displays the response."""
     detailed_question = user_question + " Explain in detail."
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    # embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
     try:
-        new_db = FAISS.load_local("faiss_index", embeddings)
+        new_db = load_faiss_index()
         docs = new_db.similarity_search(detailed_question)
         if not docs:
             st.write("No similar documents found.")
